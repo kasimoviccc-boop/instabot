@@ -102,4 +102,4 @@ async def handle_all(message: types.Message):
 if __name__ == '__main__':
     Thread(target=run_flask).start()
     executor.start_polling(dp, skip_updates=True)
-    
+
