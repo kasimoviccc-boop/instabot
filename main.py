@@ -8,7 +8,7 @@ from instagrapi import Client
 
 # --- SOZLAMALAR ---
 API_TOKEN = '8618465943:AAEM6BI2wM0TVanFN2Wc_85x1yLJ_JKqjfo'
-ADMIN_ID = '6052580480' # <--- O'zingizni ID raqamingizni yozing
+ADMIN_ID = '6052580480' # <--- Sizning ID raqamingiz
 
 # --- FOYDALANUVCHI BAZASI (Oddiy fayl tizimi) ---
 USER_FILE = "users_list.txt"
@@ -71,12 +71,17 @@ async def start_handler(message: types.Message):
 
 @dp.message_handler(lambda message: message.text == "📝 PROMPT")
 async def prompt_handler(message: types.Message):
-    await message.answer("Men @INSTAGRAM_KASIMOV kanali administratoriman. Sening vazifang menga Reels va videolarim uchun global (ingliz tili) auditoriyaga moslangan professional marketing materiallari tayyorlab berish. Men senga video mavzusini yoki linkini yuborganimda, sen quyidagilarni taqdim etishing kerak:
+    # Ko'p qatorli matnni uchta qo'shtirnoq ichiga olamiz (Xato shunda edi)
+    prompt_text = """Men @INSTAGRAM_KASIMOV kanali administratoriman. Sening vazifang menga Reels va videolarim uchun global (ingliz tili) auditoriyaga moslangan professional marketing materiallari tayyorlab berish. Men senga video mavzusini yoki linkini yuborganimda, sen quyidagilarni taqdim etishing kerak:
+
 Hook & Caption: Odamni birinchi soniyada to'xtatadigan savol yoki fakt bilan boshlanuvchi, hissiyotga boy inglizcha matn.
 CTA: Videodan so'ng foydalanuvchini harakatga chorlovchi (obuna bo'lish yoki izoh qoldirish) yakuniy qism.
 5 Ta Hashtag: Mavzuga oid eng ko'p qidiriladigan va viral bo'lishga yordam beradigan hashtaglar.
 SEO & Strategy: Agar video murakkab bo'lsa, uni qanday sarlavha bilan chiqarish bo'yicha qisqa maslahat.
-Hozir men senga yangi video yuboraman, tayyormisan?", reply_markup=gemini_inline())
+
+Hozir men senga yangi video yuboraman, tayyormisan?"""
+    
+    await message.answer(prompt_text, reply_markup=gemini_inline())
 
 @dp.message_handler(lambda message: message.text == "📊 Statistika")
 async def stats_handler(message: types.Message):
@@ -90,7 +95,7 @@ async def instagram_downloader(message: types.Message):
     if "instagram.com" in link:
         msg = await message.answer("⏳ Video tahlil qilinmoqda...")
         try:
-            # Login qilmasdan ochiq ma'lumotni olishga urinish
+            # Media ID ni linkdan olish
             media_pk = insta_client.media_pk_from_url(link)
             media_info = insta_client.media_info(media_pk)
             caption_text = media_info.caption_text
@@ -100,13 +105,14 @@ async def instagram_downloader(message: types.Message):
             else:
                 await msg.edit_text("❌ Ushbu videoda matn (caption) topilmadi.")
         except Exception as e:
-            await msg.edit_text("❌ Xatolik! Linkni tekshiring yoki video 'Private' (yopiq) emasligiga ishonch hosil qiling.")
+            await msg.edit_text("❌ Xatolik! Link ommaviy (public) ekanligiga ishonch hosil qiling.")
     else:
         await message.answer("Iltimos, faqat Instagram video linkini yuboring.")
 
 # --- ISHGA TUSHIRISH ---
 if __name__ == "__main__":
+    # Flaskni alohida oqimda ishga tushirish
     Thread(target=run_server).start()
     print("Bot ishga tushdi...")
     executor.start_polling(dp, skip_updates=True)
-    
+               
