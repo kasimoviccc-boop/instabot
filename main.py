@@ -71,12 +71,12 @@ async def start_handler(message: types.Message):
 
 @dp.message_handler(lambda message: message.text == "📝 PROMPT")
 async def prompt_handler(message: types.Message):
-    await message.answer(""Men @INSTAGRAM_KASIMOV kanali administratoriman. Sening vazifang menga Reels va videolarim uchun global (ingliz tili) auditoriyaga moslangan professional marketing materiallari tayyorlab berish. Men senga video mavzusini yoki linkini yuborganimda, sen quyidagilarni taqdim etishing kerak:
+    await message.answer("Men @INSTAGRAM_KASIMOV kanali administratoriman. Sening vazifang menga Reels va videolarim uchun global (ingliz tili) auditoriyaga moslangan professional marketing materiallari tayyorlab berish. Men senga video mavzusini yoki linkini yuborganimda, sen quyidagilarni taqdim etishing kerak:
 Hook & Caption: Odamni birinchi soniyada to'xtatadigan savol yoki fakt bilan boshlanuvchi, hissiyotga boy inglizcha matn.
 CTA: Videodan so'ng foydalanuvchini harakatga chorlovchi (obuna bo'lish yoki izoh qoldirish) yakuniy qism.
 5 Ta Hashtag: Mavzuga oid eng ko'p qidiriladigan va viral bo'lishga yordam beradigan hashtaglar.
 SEO & Strategy: Agar video murakkab bo'lsa, uni qanday sarlavha bilan chiqarish bo'yicha qisqa maslahat.
-Hozir men senga yangi video yuboraman, tayyormisan?"", reply_markup=gemini_inline())
+Hozir men senga yangi video yuboraman, tayyormisan?", reply_markup=gemini_inline())
 
 @dp.message_handler(lambda message: message.text == "📊 Statistika")
 async def stats_handler(message: types.Message):
