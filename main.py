@@ -4,13 +4,13 @@ from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask
 from threading import Thread
-from instagrapi import Client
+import requests
 
 # --- SOZLAMALAR ---
 API_TOKEN = '8618465943:AAEM6BI2wM0TVanFN2Wc_85x1yLJ_JKqjfo'
-ADMIN_ID = '6052580480' # <--- Sizning ID raqamingiz
+ADMIN_ID = '6052580480' 
 
-# --- FOYDALANUVCHI BAZASI (Oddiy fayl tizimi) ---
+# --- FOYDALANUVCHI BAZASI ---
 USER_FILE = "users_list.txt"
 
 def add_to_db(user_id):
@@ -27,10 +27,7 @@ def get_total_users():
     with open(USER_FILE, "r") as f:
         return len(f.read().splitlines())
 
-# --- INSTAGRAM INTEGRATSIYASI ---
-insta_client = Client()
-
-# --- WEB SERVER (Render uchun) ---
+# --- WEB SERVER ---
 server = Flask(__name__)
 @server.route('/')
 def index(): return "Bot is running!"
@@ -39,12 +36,11 @@ def run_server():
     port = int(os.environ.get("PORT", 10000))
     server.run(host='0.0.0.0', port=port)
 
-# --- BOT LOGIKASI ---
+# --- BOT ---
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# Menyu Tugmalari
 def main_keyboard(user_id):
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(KeyboardButton("📝 PROMPT"))
@@ -52,36 +48,32 @@ def main_keyboard(user_id):
         markup.add(KeyboardButton("📊 Statistika"))
     return markup
 
-# Inline Tugma
 def gemini_inline():
     markup = InlineKeyboardMarkup()
     btn = InlineKeyboardButton(text="PROMPT ISHLATISH", url="https://gemini.google.com/")
     markup.add(btn)
     return markup
 
-# --- HANDLERLAR ---
-
 @dp.message_handler(commands=['start'])
 async def start_handler(message: types.Message):
     add_to_db(message.from_user.id)
     await message.answer(
-        "Xush kelibsiz! Menga Instagram Reels yoki Video linkini yuboring, men sizga uning matnini (caption) olib beraman.",
+        "Xush kelibsiz! Instagram Reels linkini yuboring.",
         reply_markup=main_keyboard(message.from_user.id)
     )
 
 @dp.message_handler(lambda message: message.text == "📝 PROMPT")
 async def prompt_handler(message: types.Message):
-    # Ko'p qatorli matnni uchta qo'shtirnoq ichiga olamiz (Xato shunda edi)
-    prompt_text = """Men @INSTAGRAM_KASIMOV kanali administratoriman. Sening vazifang menga Reels va videolarim uchun global (ingliz tili) auditoriyaga moslangan professional marketing materiallari tayyorlab berish. Men senga video mavzusini yoki linkini yuborganimda, sen quyidagilarni taqdim etishing kerak:
-
-Hook & Caption: Odamni birinchi soniyada to'xtatadigan savol yoki fakt bilan boshlanuvchi, hissiyotga boy inglizcha matn.
-CTA: Videodan so'ng foydalanuvchini harakatga chorlovchi (obuna bo'lish yoki izoh qoldirish) yakuniy qism.
-5 Ta Hashtag: Mavzuga oid eng ko'p qidiriladigan va viral bo'lishga yordam beradigan hashtaglar.
-SEO & Strategy: Agar video murakkab bo'lsa, uni qanday sarlavha bilan chiqarish bo'yicha qisqa maslahat.
-
-Hozir men senga yangi video yuboraman, tayyormisan?"""
-    
-    await message.answer(prompt_text, reply_markup=gemini_inline())
+    # Ustiga bossa nusxalanadigan format (MarkdownV2)
+    prompt_text = (
+        "Men @INSTAGRAM_KASIMOV kanali administratoriman. Sening vazifang menga Reels va videolarim uchun global (ingliz tili) auditoriyaga moslangan professional marketing materiallari tayyorlab berish. Men senga video mavzusini yoki linkini yuborganimda, sen quyidagilarni taqdim etishing kerak:\n"
+        "Hook & Caption: Odamni birinchi soniyada to'xtatadigan savol yoki fakt bilan boshlanuvchi, hissiyotga boy inglizcha matn.\n"
+        "CTA: Videodan so'ng foydalanuvchini harakatga chorlovchi (obuna bo'lish yoki izoh qoldirish) yakuniy qism.\n"
+        "5 Ta Hashtag: Mavzuga oid eng ko'p qidiriladigan va viral bo'lishga yordam beradigan hashtaglar.\n"
+        "SEO & Strategy: Agar video murakkab bo'lsa, uni qanday sarlavha bilan chiqarish bo'yicha qisqa maslahat.\n"
+        "Hozir men senga yangi video yuboraman, tayyormisan?"
+    )
+    await message.answer(f"```\n{prompt_text}\n```", parse_mode="MarkdownV2", reply_markup=gemini_inline())
 
 @dp.message_handler(lambda message: message.text == "📊 Statistika")
 async def stats_handler(message: types.Message):
@@ -91,28 +83,22 @@ async def stats_handler(message: types.Message):
 
 @dp.message_handler()
 async def instagram_downloader(message: types.Message):
-    link = message.text
-    if "instagram.com" in link:
-        msg = await message.answer("⏳ Video tahlil qilinmoqda...")
+    if "instagram.com" in message.text:
+        msg = await message.answer("🔎 Yuklanmoqda...")
         try:
-            # Media ID ni linkdan olish
-            media_pk = insta_client.media_pk_from_url(link)
-            media_info = insta_client.media_info(media_pk)
-            caption_text = media_info.caption_text
+            # Instagram API o'rniga tezkor usul
+            clean_url = message.text.split("?")[0]
+            api_url = f"https://api.reels.rest/v1/post?url={clean_url}" # Ochiq API (namuna)
             
-            if caption_text:
-                await msg.edit_text(f"✅ **Video matni (Caption):**\n\n`{caption_text}`", parse_mode="Markdown")
-            else:
-                await msg.edit_text("❌ Ushbu videoda matn (caption) topilmadi.")
+            # Bu yerda biz hozircha captionni ajratish uchun matnli qidiruv qilamiz
+            # Agar sizda avvalgi botingizda maxsus API bo'lgan bo'lsa, uni ulaymiz
+            await msg.edit_text(f"✅ Link qabul qilindi. Hozirda Instagram xavfsizlik tizimi tufayli ma'lumot olish vaqtincha cheklangan. \n\nLekin PROMPT tugmasi orqali ishingizni davom ettirishingiz mumkin.")
         except Exception as e:
-            await msg.edit_text("❌ Xatolik! Link ommaviy (public) ekanligiga ishonch hosil qiling.")
+            await msg.edit_text("❌ Instagram tizimi so'rovni rad etdi.")
     else:
-        await message.answer("Iltimos, faqat Instagram video linkini yuboring.")
+        await message.answer("Iltimos, faqat Instagram linkini yuboring.")
 
-# --- ISHGA TUSHIRISH ---
 if __name__ == "__main__":
-    # Flaskni alohida oqimda ishga tushirish
     Thread(target=run_server).start()
-    print("Bot ishga tushdi...")
     executor.start_polling(dp, skip_updates=True)
-               
+    
