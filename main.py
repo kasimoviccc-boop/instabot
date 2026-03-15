@@ -10,9 +10,10 @@ from instagrapi import Client
 API_TOKEN = '8618465943:AAEM6BI2wM0TVanFN2Wc_85x1yLJ_JKqjfo'
 ADMIN_ID = '6052580480'
 
-# Instagram login (Aniq ishlashi uchun shart)
+# Instagram login ma'lumotlari
 INSTA_USER = 'HOUSELUXAI'
 INSTA_PASS = 'ZEARZEAR1'
+SESSION_FILE = "insta_session.json"
 
 # --- FOYDALANUVCHI BAZASI ---
 USER_FILE = "users_list.txt"
@@ -33,10 +34,17 @@ def get_total_users():
 
 # --- INSTAGRAM CLIENT ---
 cl = Client()
-try:
-    cl.login(INSTA_USER, INSTA_PASS)
-except Exception as e:
-    logging.error(f"Login xatosi: {e}")
+def login_instagram():
+    try:
+        if os.path.exists(SESSION_FILE):
+            cl.load_settings(SESSION_FILE)
+        cl.login(INSTA_USER, INSTA_PASS)
+        cl.dump_settings(SESSION_FILE)
+        logging.info("Instagramga muvaffaqiyatli kirildi!")
+    except Exception as e:
+        logging.error(f"Login xatosi: {e}")
+
+login_instagram()
 
 # --- WEB SERVER (Render uchun) ---
 server = Flask(__name__)
@@ -61,7 +69,7 @@ def main_keyboard(user_id):
 
 def gemini_inline():
     markup = InlineKeyboardMarkup()
-    btn = InlineKeyboardButton(text="PROMPT ISHLATISH", url="https://gemini.google.com/")
+    btn = InlineKeyboardButton(text="PROMPTNI ISHLATISH (GEMINI)", url="https://gemini.google.com/")
     markup.add(btn)
     return markup
 
@@ -69,23 +77,27 @@ def gemini_inline():
 async def start_handler(message: types.Message):
     add_to_db(message.from_user.id)
     await message.answer(
-        "Xush kelibsiz! Instagram video linkini yuboring.",
+        "Xush kelibsiz! Instagram video linkini yuboring yoki PROMPT tugmasini bosing.",
         reply_markup=main_keyboard(message.from_user.id)
     )
 
 @dp.message_handler(lambda message: message.text == "📝 PROMPT")
 async def prompt_handler(message: types.Message):
-    # Bu yerda uchta tirnoq ishlating, xato bo'lmasligi uchun
-    prompt_text = """Men @INSTAGRAM_KASIMOV kanali administratoriman. Sening vazifang menga Reels va videolarim uchun global (ingliz tili) auditoriyaga moslangan professional marketing materiallari tayyorlab berish. Men senga video mavzusini yoki linkini yuborganimda, sen quyidagilarni taqdim etishing kerak:
-
-Hook & Caption: Odamni birinchi soniyada to'xtatadigan savol yoki fakt bilan boshlanuvchi, hissiyotga boy inglizcha matn.
-CTA: Videodan so'ng foydalanuvchini harakatga chorlovchi (obuna bo'lish yoki izoh qoldirish) yakuniy qism.
-5 Ta Hashtag: Mavzuga oid eng ko'p qidiriladigan va viral bo'lishga yordam beradigan hashtaglar.
-SEO & Strategy: Agar video murakkab bo'lsa, uni qanday sarlavha bilan chiqarish bo'yicha qisqa maslahat.
-
-Hozir men senga yangi video yuboraman, tayyormisan?"""
+    # Siz so'ragan maxsus prompt matni
+    prompt_text = (
+        "Men @INSTAGRAM_KASIMOV kanali administratoriman. Sening vazifang menga Reels videolarim uchun "
+        "ingliz tilida marketing materiallari tayyorlash. Menga video mavzusini yuborganimda, FAQAT quyidagi "
+        "formatdagi bitta yaxlit matnni yubor, hech qanday tushuntirish yoki bo'lim nomlarini (Hook, CTA, Hashtag kabi) yozma:\n\n"
+        "[Bu yerda sening hook, caption va CTA matning bo'lsin]\n"
+        "#hashtag1 #hashtag2 #hashtag3 #hashtag4 #hashtag5\n\n"
+        "DIQQAT: Matndan tashqari birorta ortiqcha gap qo'shma. Faqat nusxa olishga tayyor blok bo'lsin. Tayyormisan?"
+    )
     
-    await message.answer(f"<code>{prompt_text}</code>", parse_mode="HTML", reply_markup=gemini_inline())
+    await message.answer(
+        f"Matn nusxa olish uchun tayyor:\n\n<code>{prompt_text}</code>", 
+        parse_mode="HTML", 
+        reply_markup=gemini_inline()
+    )
 
 @dp.message_handler(lambda message: message.text == "📊 Statistika")
 async def stats_handler(message: types.Message):
@@ -96,19 +108,20 @@ async def stats_handler(message: types.Message):
 @dp.message_handler()
 async def handle_insta(message: types.Message):
     if "instagram.com" in message.text:
-        wait = await message.answer("⏳ Caption olinmoqda...")
+        wait = await message.answer("🔎 Yuklanmoqda...")
         try:
             media_pk = cl.media_pk_from_url(message.text)
             media_info = cl.media_info(media_pk)
             caption = media_info.caption_text
             if caption:
-                await wait.edit_text(f"✅ **Caption:**\n\n<code>{caption}</code>", parse_mode="HTML")
+                await wait.edit_text(f"✅ **Original Caption:**\n\n<code>{caption}</code>", parse_mode="HTML")
             else:
-                await wait.edit_text("❌ Caption topilmadi.")
-        except:
-            await wait.edit_text("❌ Xatolik! Linkni tekshiring.")
+                await wait.edit_text("❌ Ushbu postda matn (caption) topilmadi.")
+        except Exception as e:
+            logging.error(f"Xatolik yuz berdi: {e}")
+            await wait.edit_text("❌ Xatolik! Link noto'g'ri yoki Instagram botni vaqtincha chekladi.")
 
 if __name__ == "__main__":
-    Thread(target=run_server).start()
+    Thread(target=run_server, daemon=True).start()
     executor.start_polling(dp, skip_updates=True)
     
