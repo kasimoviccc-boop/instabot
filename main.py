@@ -7,7 +7,7 @@ from threading import Thread
 from instagrapi import Client
 
 # --- SOZLAMALAR ---
-API_TOKEN = '8618465943:AAEM6BI2wM0TVanFN2Wc_85x1yLJ_JKqjfo'
+API_TOKEN = '8618465943:AAH1TNtP4X7PI4FoZBURbwzcoHJ6vy2jmsI'
 ADMIN_ID = '6052580480'
 
 # Instagram login ma'lumotlari
