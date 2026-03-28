@@ -1,5 +1,6 @@
 import os
 import logging
+import asyncio
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask
@@ -7,6 +8,7 @@ from threading import Thread
 from instagrapi import Client
 
 # --- SOZLAMALAR ---
+# Tokenni BotFather'dan yangilab, bu yerga yozing
 API_TOKEN = '8618465943:AAGTxyROizsOOjHOymOytcO4GigmhdiGHC4'
 ADMIN_ID = '6052580480'
 
@@ -14,10 +16,13 @@ ADMIN_ID = '6052580480'
 INSTA_USER = 'HOUSELUXAI'
 INSTA_PASS = 'ZEARZEAR1'
 SESSION_FILE = "insta_session.json"
-
-# --- FOYDALANUVCHI BAZASI ---
 USER_FILE = "users_list.txt"
 
+# --- LOGGING SOZLAMALARI ---
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# --- FOYDALANUVCHI BAZASI ---
 def add_to_db(user_id):
     if not os.path.exists(USER_FILE):
         with open(USER_FILE, "w") as f: f.write("")
@@ -34,32 +39,38 @@ def get_total_users():
 
 # --- INSTAGRAM CLIENT ---
 cl = Client()
+
 def login_instagram():
     try:
         if os.path.exists(SESSION_FILE):
             cl.load_settings(SESSION_FILE)
+            logger.info("Session yuklandi.")
+        
         cl.login(INSTA_USER, INSTA_PASS)
         cl.dump_settings(SESSION_FILE)
-        logging.info("Instagramga muvaffaqiyatli kirildi!")
+        logger.info("Instagramga muvaffaqiyatli kirildi!")
     except Exception as e:
-        logging.error(f"Login xatosi: {e}")
+        logger.error(f"Instagram Login xatosi: {e}")
 
+# Bot ishga tushishidan oldin bir marta login qiladi
 login_instagram()
 
-# --- WEB SERVER (Render uchun) ---
+# --- WEB SERVER (Render "uyquga" ketmasligi uchun) ---
 server = Flask(__name__)
+
 @server.route('/')
-def index(): return "Bot is running!"
+def index():
+    return "Bot is active and running!"
 
 def run_server():
     port = int(os.environ.get("PORT", 10000))
     server.run(host='0.0.0.0', port=port)
 
-# --- BOT ---
-logging.basicConfig(level=logging.INFO)
+# --- BOT OBYEKTLARI ---
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
+# --- KLAVIATURALAR ---
 def main_keyboard(user_id):
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(KeyboardButton("📝 PROMPT"))
@@ -73,6 +84,7 @@ def gemini_inline():
     markup.add(btn)
     return markup
 
+# --- HANDLERS ---
 @dp.message_handler(commands=['start'])
 async def start_handler(message: types.Message):
     add_to_db(message.from_user.id)
@@ -83,16 +95,14 @@ async def start_handler(message: types.Message):
 
 @dp.message_handler(lambda message: message.text == "📝 PROMPT")
 async def prompt_handler(message: types.Message):
-    # Siz so'ragan maxsus prompt matni
     prompt_text = (
         "Men @INSTAGRAM_KASIMOV kanali administratoriman. Sening vazifang menga Reels videolarim uchun "
         "ingliz tilida marketing materiallari tayyorlash. Menga video mavzusini yuborganimda, FAQAT quyidagi "
-        "formatdagi bitta yaxlit matnni yubor, hech qanday tushuntirish yoki bo'lim nomlarini (Hook, CTA, Hashtag kabi) yozma:\n\n"
-        "[Bu yerda sening hook, caption va CTA matning bo'lsin]\n"
+        "formatdagi bitta yaxlit matnni yubor, hech qanday tushuntirish yoki bo'lim nomlarini yozma:\n\n"
+        "[Hook, caption va CTA matni]\n"
         "#hashtag1 #hashtag2 #hashtag3 #hashtag4 #hashtag5\n\n"
-        "DIQQAT: Matndan tashqari birorta ortiqcha gap qo'shma. Faqat nusxa olishga tayyor blok bo'lsin. Tayyormisan?"
+        "DIQQAT: Matndan tashqari birorta ortiqcha gap qo'shma. Faqat nusxa olishga tayyor blok bo'lsin."
     )
-    
     await message.answer(
         f"Matn nusxa olish uchun tayyor:\n\n<code>{prompt_text}</code>", 
         parse_mode="HTML", 
@@ -110,18 +120,29 @@ async def handle_insta(message: types.Message):
     if "instagram.com" in message.text:
         wait = await message.answer("🔎 Yuklanmoqda...")
         try:
+            # Media PK olish
             media_pk = cl.media_pk_from_url(message.text)
             media_info = cl.media_info(media_pk)
             caption = media_info.caption_text
+            
             if caption:
                 await wait.edit_text(f"✅ **Original Caption:**\n\n<code>{caption}</code>", parse_mode="HTML")
             else:
                 await wait.edit_text("❌ Ushbu postda matn (caption) topilmadi.")
         except Exception as e:
-            logging.error(f"Xatolik yuz berdi: {e}")
-            await wait.edit_text("❌ Xatolik! Link noto'g'ri yoki Instagram botni vaqtincha chekladi.")
+            logger.error(f"Instagram xatosi: {e}")
+            await wait.edit_text("❌ Xatolik! Link noto'g'ri yoki Instagram botni chekladi (Proxy kerak bo'lishi mumkin).")
+
+# --- ISHGA TUSHIRISH ---
+async def on_startup(dp):
+    # MUHIM: Eski barcha ulanishlarni o'chirib yuboradi (Conflict oldini oladi)
+    await bot.delete_webhook(drop_pending_updates=True)
+    logger.info("Bot Telegram bilan aloqaga chiqdi!")
 
 if __name__ == "__main__":
+    # Flaskni alohida oqimda yoqish
     Thread(target=run_server, daemon=True).start()
-    executor.start_polling(dp, skip_updates=True)
     
+    # Botni ishga tushirish
+    executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
+        
