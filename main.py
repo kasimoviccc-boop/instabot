@@ -13,7 +13,7 @@ API_TOKEN = '8618465943:AAGTxyROizsOOjHOymOytcO4GigmhdiGHC4'
 ADMIN_ID = '6052580480'
 
 # Instagram login ma'lumotlari
-INSTA_USER = 'HOUSELUXAI'
+INSTA_USER = 'bottuchun'
 INSTA_PASS = 'ZEARZEAR1'
 SESSION_FILE = "insta_session.json"
 USER_FILE = "users_list.txt"
