@@ -14,7 +14,7 @@ ADMIN_ID = '6052580480'
 
 # Instagram login ma'lumotlari
 INSTA_USER = 'bottuchun'
-INSTA_PASS = 'ZEARZEAR1'
+INSTA_PASS = 'ZEARZEAR2'
 SESSION_FILE = "insta_session.json"
 USER_FILE = "users_list.txt"
 
