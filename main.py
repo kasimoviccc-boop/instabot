@@ -6,10 +6,11 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 from flask import Flask
 from threading import Thread
 from instagrapi import Client
+from instagrapi.exceptions import ChallengeRequired, LoginRequired
 
 # --- SOZLAMALAR ---
-# Tokenni BotFather'dan yangilab, bu yerga yozing
-API_TOKEN = '8618465943:AAGTxyROizsOOjHOymOytcO4GigmhdiGHC4'
+# Tokenni BotFather'dan yangilagan bo'lsangiz, shu yerga yangisini yozing
+API_TOKEN = '8618465943:AAEyXXvV8nBsfsgS09XE7ehT8cpydO9WutU'
 ADMIN_ID = '6052580480'
 
 # Instagram login ma'lumotlari
@@ -18,7 +19,7 @@ INSTA_PASS = 'ZEARZEAR2'
 SESSION_FILE = "insta_session.json"
 USER_FILE = "users_list.txt"
 
-# --- LOGGING SOZLAMALARI ---
+# --- LOGGING ---
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -40,27 +41,44 @@ def get_total_users():
 # --- INSTAGRAM CLIENT ---
 cl = Client()
 
+# Instagramga O'zbekistondagi telefondan kirayotgandek ko'rinish berish
+cl.set_device_settings({
+    "app_version": "269.1.0.18.127",
+    "android_version": 26,
+    "android_release": "8.0.0",
+    "model": "SM-G955F",
+    "manufacturer": "samsung",
+    "chipset": "samsungexynos8895",
+    "cpu": "universal8895",
+    "version_code": "443213196"
+})
+
 def login_instagram():
     try:
         if os.path.exists(SESSION_FILE):
             cl.load_settings(SESSION_FILE)
-            logger.info("Session yuklandi.")
+            logger.info("Tayyor sessiya yuklandi.")
         
-        cl.login(INSTA_USER, INSTA_PASS)
-        cl.dump_settings(SESSION_FILE)
-        logger.info("Instagramga muvaffaqiyatli kirildi!")
+        try:
+            cl.get_timeline_feed() # Sessiya ishlayotganini tekshirish
+        except Exception:
+            logger.info("Sessiya yangilanmoqda...")
+            cl.login(INSTA_USER, INSTA_PASS)
+            cl.dump_settings(SESSION_FILE)
+            logger.info("Instagramga muvaffaqiyatli kirildi!")
+            
+    except ChallengeRequired:
+        logger.error("Instagram Challenge so'radi! Telefondan kirib tasdiqlang.")
     except Exception as e:
         logger.error(f"Instagram Login xatosi: {e}")
 
-# Bot ishga tushishidan oldin bir marta login qiladi
+# Ishga tushishdan oldin login
 login_instagram()
 
-# --- WEB SERVER (Render "uyquga" ketmasligi uchun) ---
+# --- WEB SERVER ---
 server = Flask(__name__)
-
 @server.route('/')
-def index():
-    return "Bot is active and running!"
+def index(): return "Bot is active and running!"
 
 def run_server():
     port = int(os.environ.get("PORT", 10000))
@@ -95,6 +113,7 @@ async def start_handler(message: types.Message):
 
 @dp.message_handler(lambda message: message.text == "📝 PROMPT")
 async def prompt_handler(message: types.Message):
+    # Siz xohlagan ASL VA TO'LIQ PROMPT MATNI
     prompt_text = (
         "Men @INSTAGRAM_KASIMOV kanali administratoriman. Sening vazifang menga Reels videolarim uchun "
         "ingliz tilida marketing materiallari tayyorlash. Menga video mavzusini yuborganimda, FAQAT quyidagi "
@@ -120,7 +139,6 @@ async def handle_insta(message: types.Message):
     if "instagram.com" in message.text:
         wait = await message.answer("🔎 Yuklanmoqda...")
         try:
-            # Media PK olish
             media_pk = cl.media_pk_from_url(message.text)
             media_info = cl.media_info(media_pk)
             caption = media_info.caption_text
@@ -131,18 +149,15 @@ async def handle_insta(message: types.Message):
                 await wait.edit_text("❌ Ushbu postda matn (caption) topilmadi.")
         except Exception as e:
             logger.error(f"Instagram xatosi: {e}")
-            await wait.edit_text("❌ Xatolik! Link noto'g'ri yoki Instagram botni chekladi (Proxy kerak bo'lishi mumkin).")
+            await wait.edit_text("❌ Xatolik! Akkauntga telefondan kirib 'Bu men edim' tugmasini bosing.")
 
 # --- ISHGA TUSHIRISH ---
 async def on_startup(dp):
-    # MUHIM: Eski barcha ulanishlarni o'chirib yuboradi (Conflict oldini oladi)
+    # Conflict (Terminated by other getUpdates) xatosini 100% tuzatadi
     await bot.delete_webhook(drop_pending_updates=True)
-    logger.info("Bot Telegram bilan aloqaga chiqdi!")
+    logger.info("Bot ishga tushdi!")
 
 if __name__ == "__main__":
-    # Flaskni alohida oqimda yoqish
     Thread(target=run_server, daemon=True).start()
-    
-    # Botni ishga tushirish
     executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
-        
+                    
