@@ -6,7 +6,7 @@ from threading import Thread
 from instagrapi import Client
 
 # --- SOZLAMALAR ---
-API_TOKEN = '8618465943:AAGTxyROizsOOjHOymOytcO4GigmhdiGHC4'
+API_TOKEN = '8618465943:AAEyXXvV8nBsfsgS09XE7ehT8cpydO9WutU'
 ADMIN_ID = '6052580480'
 INSTA_USER = 'bottuchun'
 INSTA_PASS = 'ZEARZEAR2'
@@ -16,21 +16,25 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 cl = Client()
-cl.set_device_settings({"app_version": "269.1.0.18.127", "android_version": 26, "model": "SM-G955F"})
 
-def login_instagram():
+# Xatoni to'g'irlash: set_device_settings o'rniga bevosita settings orqali beramiz
+def setup_client():
     try:
+        # Eski sessiya bo'lsa yuklaymiz
         if os.path.exists(SESSION_FILE):
             cl.load_settings(SESSION_FILE)
             logger.info("Sessiya yuklandi.")
+        
+        # Login qilish
         cl.login(INSTA_USER, INSTA_PASS)
         cl.dump_settings(SESSION_FILE)
-        logger.info("Instagramga kirildi!")
+        logger.info("Instagramga muvaffaqiyatli kirildi!")
     except Exception as e:
-        logger.error(f"Login xatosi: {e}")
+        logger.error(f"Instagram login xatosi: {e}")
 
-login_instagram()
+setup_client()
 
+# --- WEB SERVER ---
 server = Flask(__name__)
 @server.route('/')
 def index(): return "Bot Active"
@@ -39,13 +43,14 @@ def run_server():
     port = int(os.environ.get("PORT", 10000))
     server.run(host='0.0.0.0', port=port)
 
+# --- BOT ---
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
 @dp.message_handler(commands=['start'])
 async def start(message: types.Message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True).add("📝 PROMPT")
-    await message.answer("Xush kelibsiz! Link yuboring.", reply_markup=markup)
+    await message.answer("Xush kelibsiz! Instagram Reels linkini yuboring.", reply_markup=markup)
 
 @dp.message_handler(lambda m: m.text == "📝 PROMPT")
 async def send_prompt(message: types.Message):
@@ -62,13 +67,16 @@ async def send_prompt(message: types.Message):
 @dp.message_handler()
 async def insta_handler(message: types.Message):
     if "instagram.com" in message.text:
-        wait = await message.answer("🔎...")
+        wait = await message.answer("🔎 Yuklanmoqda...")
         try:
             media_pk = cl.media_pk_from_url(message.text)
             info = cl.media_info(media_pk)
-            await wait.edit_text(f"✅ **Matn:**\n\n<code>{info.caption_text}</code>", parse_mode="HTML")
+            if info.caption_text:
+                await wait.edit_text(f"✅ **Original Caption:**\n\n<code>{info.caption_text}</code>", parse_mode="HTML")
+            else:
+                await wait.edit_text("❌ Matn topilmadi.")
         except Exception:
-            await wait.edit_text("❌ Akkauntni telefondan tasdiqlang!")
+            await wait.edit_text("❌ Xatolik! Instagram akkauntingizga telefondan kirib 'Bu men edim' tugmasini bosing.")
 
 async def on_startup(dp):
     await bot.delete_webhook(drop_pending_updates=True)
