@@ -9,8 +9,8 @@ from instagrapi import Client
 # --- SOZLAMALAR ---
 API_TOKEN = '8618465943:AAEyXXvV8nBsfsgS09XE7ehT8cpydO9WutU'
 ADMIN_ID = '6052580480'
-INSTA_USER = 'bottuchun'
-INSTA_PASS = 'ZEARZEAR3'
+INSTA_USER = 'BOTIMIZ1'
+INSTA_PASS = 'KASIMOV1'
 SESSION_FILE = "insta_session.json"
 
 logging.basicConfig(level=logging.INFO)
