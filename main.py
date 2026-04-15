@@ -19,7 +19,6 @@ cl = Client()
 
 def setup_instagram():
     try:
-        # Qurilma identifikatsiyasi (Sizning telefoningizdek ko'rinish uchun)
         cl.set_device({
             "app_version": "269.1.0.18.127",
             "android_version": 26,
@@ -32,12 +31,17 @@ def setup_instagram():
         })
         
         if os.path.exists(SESSION_FILE):
-            cl.load_settings(SESSION_FILE)
-            logger.info("Sessiya yuklandi.")
+            try:
+                cl.load_settings(SESSION_FILE)
+                logger.info("Sessiya yuklandi.")
+            except Exception:
+                logger.info("Eski sessiya yaroqsiz.")
         
-        cl.login(INSTA_USER, INSTA_PASS)
-        cl.dump_settings(SESSION_FILE)
-        logger.info("Instagramga qurilma orqali muvaffaqiyatli kirildi!")
+        # Agar sessiya orqali login o'tmasa, qaytadan login qilamiz
+        if not cl.user_id:
+            cl.login(INSTA_USER, INSTA_PASS)
+            cl.dump_settings(SESSION_FILE)
+            logger.info("Instagramga yangidan kirildi!")
     except Exception as e:
         logger.error(f"Login xatosi: {e}")
 
@@ -48,11 +52,17 @@ server = Flask(__name__)
 def index(): return "Bot Active"
 
 def run_server():
-    port = int(os.environ.get("PORT", 10000))
+    # Rasmda chiqqan port xatosini oldini olish uchun xavfsiz usul
+    try:
+        port = int(os.environ.get("PORT", 10000))
+    except (TypeError, ValueError):
+        port = 10000
     server.run(host='0.0.0.0', port=port)
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
+
+# --- SIZNING TUGMALARINGIZ VA MATNLARINGIZ (O'ZGARMADI) ---
 
 @dp.message_handler(commands=['start'])
 async def start(message: types.Message):
@@ -76,11 +86,15 @@ async def insta_handler(message: types.Message):
     if "instagram.com" in message.text:
         wait = await message.answer("🔎 Yuklanmoqda...")
         try:
-            await asyncio.sleep(2)
-            media_pk = cl.media_pk_from_url(message.text)
-            info = cl.media_info(media_pk)
-            await wait.edit_text(f"✅ **Original Caption:**\n\n<code>{info.caption_text}</code>", parse_mode="HTML")
-        except Exception:
+            # Asinxron loop ichida ishlash botni qotib qolishidan asraydi
+            loop = asyncio.get_event_loop()
+            media_pk = await loop.run_in_executor(None, cl.media_pk_from_url, message.text)
+            info = await loop.run_in_executor(None, cl.media_info, media_pk)
+            
+            caption = info.caption_text if info.caption_text else "Caption topilmadi"
+            await wait.edit_text(f"✅ **Original Caption:**\n\n<code>{caption}</code>", parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"Xatolik yuz berdi: {e}")
             await wait.edit_text("❌ Xatolik! Telefondan Instagramga kirib 'Bu men edim' tugmasini bosing.")
 
 async def on_startup(dp):
@@ -89,4 +103,4 @@ async def on_startup(dp):
 if __name__ == "__main__":
     Thread(target=run_server, daemon=True).start()
     executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
-        
+            
