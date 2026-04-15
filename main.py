@@ -7,7 +7,7 @@ from threading import Thread
 from instagrapi import Client
 
 # --- SOZLAMALAR ---
-API_TOKEN = '8618465943:AAEyXXvV8nBsfsgS09XE7ehT8cpydO9WutU'
+API_TOKEN = '8618465943:AAEnQxlHP08ihHiNmJgTuq5X8i8ONVBl7Nc'
 INSTA_USER = 'HOUSELUXAI'
 INSTA_PASS = 'ZEARZEAR1'
 SESSION_FILE = "insta_session.json"
